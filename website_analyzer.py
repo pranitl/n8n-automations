@@ -26,7 +26,7 @@ logging.basicConfig(
 load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 # Optional: Set a default model or get from .env
-DEFAULT_OPENROUTER_MODEL = "openai/gpt-4.1-nano"
+DEFAULT_OPENROUTER_MODEL = "google/gemini-2.0-flash-lite-001"
 
 if not OPENROUTER_API_KEY:
     logging.error("Error: OPENROUTER_API_KEY not found. Please set it in your .env file.")
@@ -94,8 +94,8 @@ def take_and_optimize_screenshot(url: str, base_filepath_name: str,
                                  screenshots_dir: Path, max_width: int, jpeg_quality: int) -> Path | None:
     logging.info(f"Attempting screenshot and optimization for URL: {url}")
     overall_ss_opt_start_time = time.perf_counter()
-    original_screenshot_path = screenshots_dir / f"{base_filepath_name}_temp.png" # Playwright saves as PNG
-    optimized_screenshot_path = screenshots_dir / f"{base_filepath_name}.jpg" # We will convert to JPEG
+    original_screenshot_path = screenshots_dir / f"{base_filepath_name}_temp.png"
+    optimized_screenshot_path = screenshots_dir / f"{base_filepath_name}.jpg"
 
     if not isinstance(url, str) or not (url.startswith('http://') or url.startswith('https://')):
         logging.warning(f"Invalid or missing URL for screenshot: {url}. Skipping.")
@@ -105,7 +105,7 @@ def take_and_optimize_screenshot(url: str, base_filepath_name: str,
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                viewport={'width': 1920, 'height': 1080}
+                viewport={'width': 1920, 'height': 3000}  # Increased height to capture more content
             )
             page = context.new_page()
             logging.debug(f"Navigating to {url}...")
@@ -113,18 +113,23 @@ def take_and_optimize_screenshot(url: str, base_filepath_name: str,
             page.goto(url, timeout=90000, wait_until="networkidle")
             logging.debug(f"Navigation to {url} complete. Took {time.perf_counter() - page_goto_start:.4f}s")
             time.sleep(3)
+
+            # Scroll to the bottom to ensure all content loads (e.g., lazy-loaded images)
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            time.sleep(2)  # Wait for content to load after scrolling
+            page.evaluate("window.scrollTo(0, 0)")  # Scroll back to the top
+
             logging.debug(f"Taking screenshot for {url}...")
             screenshot_take_start = time.perf_counter()
-            page.screenshot(path=original_screenshot_path) # Takes viewport screenshot
+            page.screenshot(path=original_screenshot_path, full_page=True)  # Still use full_page for simplicity
             logging.debug(f"Screenshot for {url} saved to {original_screenshot_path}. Took {time.perf_counter() - screenshot_take_start:.4f}s")
             browser.close()
 
         if optimize_screenshot(original_screenshot_path, optimized_screenshot_path, max_width, jpeg_quality):
             logging.info(f"Screenshot and optimization for {url} successful. Total time: {time.perf_counter() - overall_ss_opt_start_time:.4f}s")
             return optimized_screenshot_path
-        else: # Optimization failed
+        else:
             logging.error(f"Optimization failed for {original_screenshot_path}. It might have been deleted.")
-            # if original_screenshot_path.exists(): original_screenshot_path.unlink() # Already unlinked in optimize_screenshot on success, or might fail to exist here
             return None
     except PlaywrightTimeoutError:
         logging.error(f"Playwright timeout for {url}.", exc_info=True)
@@ -132,8 +137,10 @@ def take_and_optimize_screenshot(url: str, base_filepath_name: str,
     except Exception as e:
         logging.error(f"General error taking/optimizing screenshot for {url}: {e}", exc_info=True)
         if original_screenshot_path.exists():
-            try: original_screenshot_path.unlink()
-            except OSError: pass
+            try:
+                original_screenshot_path.unlink()
+            except OSError:
+                pass
         return None
 
 def encode_image_to_base64(image_path: Path) -> str:
@@ -152,7 +159,7 @@ def analyze_website_aesthetic_categorized(image_path: Path, model_name: str) -> 
         logging.error(f"Screenshot not available for analysis: {image_path}")
         return "Error", "Screenshot not available for analysis."
 
-    valid_categories = ["Ugly", "Passable", "Modern"]
+    valid_categories = ["Modern", "Acceptable", "Outdated"]
     category = "Uncategorized"
     explanation = "Analysis initially failed or format incorrect."
     
@@ -168,23 +175,32 @@ def analyze_website_aesthetic_categorized(image_path: Path, model_name: str) -> 
             img_size_bytes = image_path.stat().st_size
             logging.info(f"Attempt {attempt + 1}/{max_retries} to analyze {image_path.name} ({img_size_bytes / 1024:.2f} KB) with {model_name}")
 
-            prompt_text = f"""
-            Your task is to analyze the aesthetic of the website in the attached screenshot.
-            First, classify the website's design into one of the following three categories only:
-            1. Ugly
-            2. Passable
-            3. Modern
+            prompt_text = """
+            Analyze the aesthetic of the website in the attached screenshot and classify its design into one of three categories: 'Modern', 'Acceptable', or 'Outdated'. Then, provide a one or two-sentence explanation for your classification, focusing on specific visual elements.
 
-            Then, provide a brief one or two-sentence explanation for your classification.
+            Definitions (based on 2025 web design standards):
+            - Modern: The website looks highly professional and contemporary, incorporating advanced modern design trends such as effective use of white space, modern typography (e.g., sans-serif fonts with varied weights), a cohesive and visually appealing color scheme, high-quality images or graphics, contemporary UI elements (e.g., buttons with hover effects, gradients, or subtle animations), and clear indicators of responsive design (e.g., adaptable layouts, mobile-friendly elements). It feels cutting-edge and aligns with the best practices of 2025.
+            - Acceptable: The website is functional and has a decent, professional aesthetic, with a clean and organized layout, legible typography, a cohesive color scheme, and at least some professional elements (e.g., high-quality images, structured navigation). It may lack advanced modern design trends but is not significantly dated or visually unappealing, making it acceptable by 2025 standards.
+            - Outdated: The website appears dated and visually unappealing by 2025 standards, resembling designs from the early 2000s or 2010s. This includes websites with cluttered or overly basic layouts, lack of any professional aesthetic, low-quality or pixelated images, clashing or dated colors, poor typography, or an overall impression that feels unprofessional and significantly out-of-touch with current trends.
 
-            Definitions for Categorization:
-            - Ugly: The website appears visually unappealing. This could be due to elements reminiscent of 1990s/early 2000s web design, use of outdated or clashing color schemes, poor typography choices, a cluttered or confusing layout, low-quality images, or other factors that make it aesthetically displeasing.
-            - Passable: The website is functional but lacks a distinctive or impressive design. It might look like a standard boilerplate template (e.g., a basic, unmodified WordPress theme), have a very generic appearance, or use common stock elements without much customization. It's not offensive but not particularly engaging, innovative, or modern.
-            - Modern: The website features a sleek, contemporary, and professional design. This often includes characteristics such as clean layouts, effective use of white space, high-quality and relevant imagery, current typography trends, a cohesive and pleasing color palette, intuitive navigation, and an overall polished and visually engaging presentation that feels up-to-date.
+            Key Evaluation Criteria:
+            - Modern Design Elements: Does the website use effective white space, modern typography, and contemporary UI elements (e.g., hover effects, gradients, animations) (Modern), or does it lack these but still look professional (Acceptable), or lack them entirely with a dated appearance (Outdated)?
+            - Image Quality: Are images high-quality, relevant, and well-integrated (Modern or Acceptable), or are they low-quality, pixelated, or generic (Outdated)?
+            - Color Scheme: Is the color scheme cohesive, visually appealing, and modern (Modern), professional but simple (Acceptable), or bland, clashing, or dated (Outdated)?
+            - Typography: Are fonts modern, varied, and legible (Modern), basic but professional and legible (Acceptable), or plain, inconsistent, and dated (Outdated)?
+            - Layout: Is the layout clean, intuitive, and well-structured with clear hierarchy (Modern), organized and functional (Acceptable), or cluttered, unbalanced, or overly simplistic (Outdated)?
+            - Responsiveness Indicators: Does the layout suggest adaptability (e.g., flexible grids, mobile-friendly elements) (Modern), appear functional but rigid (Acceptable), or look broken or desktop-only (Outdated)?
+            - Overall Impression: Does the website feel cutting-edge and aligned with 2025 standards (Modern), professional but not modern (Acceptable), or like it was built in the early 2000s or 2010s with significant flaws (Outdated)?
 
-            Please format your response EXACTLY as follows, choosing only one category from the list above:
-            Category: [Chosen Category: Ugly, Passable, or Modern]
-            Explanation: [Your brief explanation based on the definitions and visual elements observed in the screenshot]
+            Important Notes:
+            - To be classified as 'Modern', a website must exhibit advanced modern design trends (e.g., hover effects, gradients, animations) and feel cutting-edge by 2025 standards.
+            - 'Acceptable' websites are functional, professional, and have a decent aesthetic (e.g., clean layout, cohesive colors), even if they lack advanced modern elements. They should not feel significantly dated or unprofessional.
+            - 'Outdated' websites must have significant aesthetic flaws (e.g., cluttered layouts, clashing colors, pixelated images) and feel unprofessional by 2025 standards, making them clear candidates for a redesign.
+            - Prioritize the overall impression based on 2025 standards. If a website is functional and has a decent, professional aesthetic but lacks advanced modern elements, classify it as 'Acceptable'. Only classify as 'Outdated' if it has significant flaws and feels unprofessional or dated.
+
+            Format your response EXACTLY as:
+            Category: [Modern, Acceptable, or Outdated]
+            Explanation: [Your brief explanation based on the screenshot, mentioning at least one specific visual element from the criteria]
             """
             
             messages = [
@@ -195,7 +211,6 @@ def analyze_website_aesthetic_categorized(image_path: Path, model_name: str) -> 
                         {
                             "type": "image_url",
                             "image_url": {
-                                # OpenRouter expects data URL for base64 images
                                 "url": f"data:image/jpeg;base64,{base64_image}"
                             },
                         },
@@ -209,7 +224,7 @@ def analyze_website_aesthetic_categorized(image_path: Path, model_name: str) -> 
             response = client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                max_tokens=300 # Max tokens for the response content
+                max_tokens=200
             )
             
             model_call_duration = time.perf_counter() - model_call_start_time
@@ -218,50 +233,65 @@ def analyze_website_aesthetic_categorized(image_path: Path, model_name: str) -> 
             response_text = response.choices[0].message.content.strip()
             logging.debug(f"OpenRouter raw response for {image_path.name} (first 300 chars): {response_text[:300]}")
             
-            category_match = re.search(r"Category:\s*(Ugly|Passable|Modern)", response_text, re.IGNORECASE)
+            category_match = re.search(r"Category:\s*(Modern|Acceptable|Outdated)", response_text, re.IGNORECASE)
             explanation_match = re.search(r"Explanation:\s*(.*)", response_text, re.DOTALL | re.IGNORECASE)
 
             if category_match:
                 extracted_cat = category_match.group(1).capitalize()
-                if extracted_cat in valid_categories: category = extracted_cat
+                if extracted_cat in valid_categories:
+                    category = extracted_cat
                 else:
                     category = "Invalid Category from LLM"
                     logging.warning(f"LLM ({model_name}) provided an invalid category for {image_path.name}: {extracted_cat}")
-            else: # Fallback
-                if "ugly" in response_text.lower(): category = "Ugly"
-                elif "passable" in response_text.lower(): category = "Passable"
-                elif "modern" in response_text.lower(): category = "Modern"
-                else: category = "Uncategorized - Format Error"
+            else:
+                if "modern" in response_text.lower():
+                    category = "Modern"
+                elif "acceptable" in response_text.lower():
+                    category = "Acceptable"
+                elif "outdated" in response_text.lower():
+                    category = "Outdated"
+                else:
+                    category = "Uncategorized - Format Error"
                 logging.warning(f"'Category:' line not found for {image_path.name} from {model_name}. Fallback category: {category}")
             
-            if explanation_match: explanation = explanation_match.group(1).strip()
+            if explanation_match:
+                explanation = explanation_match.group(1).strip()
             elif category not in ["Uncategorized - Format Error", "Invalid Category from LLM", "Error"]:
-                 explanation = "Explanation not found in expected format, but category assigned."
-                 logging.warning(f"Explanation format error for {image_path.name} from {model_name}, but category '{category}' assigned.")
-            else: explanation = f"Raw LLM Response (format error): {response_text[:250]}..."
-            
-            break # Success, exit retry loop
+                explanation = "Explanation not found in expected format, but category assigned."
+                logging.warning(f"Explanation format error for {image_path.name} from {model_name}, but category '{category}' assigned.")
+            else:
+                explanation = f"Raw LLM Response (format error): {response_text[:250]}..."
 
-        except (RateLimitError, APIConnectionError, APITimeoutError) as e: # Specific OpenAI/OpenRouter errors
+            # Post-processing check to ensure "Outdated" classifications have significant flaws
+            if category == "Outdated":
+                significant_flaws = ["cluttered", "clashing", "pixelated", "dated", "unprofessional", "poor", "inconsistent"]
+                if not any(flaw in explanation.lower() for flaw in significant_flaws):
+                    logging.warning(f"Reclassifying {image_path.name} as 'Acceptable': Explanation lacks significant aesthetic flaws.")
+                    category = "Acceptable"
+                    explanation = f"{explanation} (Reclassified as Acceptable due to lack of significant aesthetic flaws by 2025 standards.)"
+            
+            break  # Success, exit retry loop
+
+        except (RateLimitError, APIConnectionError, APITimeoutError) as e:
             logging.warning(f"API call attempt {attempt + 1} for {image_path.name} failed with {type(e).__name__}: {e}")
             if attempt + 1 == max_retries:
                 logging.error(f"All {max_retries} API call attempts failed for {image_path.name}.", exc_info=True)
                 explanation = f"Failed API call after {max_retries} attempts: {e}"
                 category = "Error"
-                break # Exit loop after all retries failed
-            delay = base_delay * (2 ** attempt) + (0.5 * base_delay * attempt) # Exponential backoff with some jitter
+                break
+            delay = base_delay * (2 ** attempt) + (0.5 * base_delay * attempt)
             logging.info(f"Retrying API call in {delay:.2f} seconds...")
             time.sleep(delay)
-        except APIError as e: # Other OpenRouter/OpenAI API errors
+        except APIError as e:
             logging.error(f"OpenRouter APIError on attempt {attempt + 1} for {image_path.name}: {e}", exc_info=True)
             explanation = f"OpenRouter APIError: {e}"
             category = "Error"
-            break # Don't retry on all APIErrors, could be auth, invalid request etc.
+            break
         except Exception as e:
             logging.error(f"Unexpected error during OpenRouter analysis attempt {attempt + 1} for {image_path.name}: {e}", exc_info=True)
             explanation = f"Unexpected analysis error: {e}"
             category = "Error"
-            break # Don't retry on completely unexpected errors
+            break
 
     logging.info(f"Aesthetic analysis for {image_path.name} complete. Category: {category}. Total time: {time.perf_counter() - analysis_start_time:.4f}s")
     return category, explanation
