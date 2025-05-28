@@ -1,0 +1,1020 @@
+{
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "0a4ae628-3cbb-48d4-81a9-05c0f85a573e",
+        "name": "When clicking \"Execute Workflow\"",
+        "type": "n8n-nodes-base.manualTrigger",
+        "position": [
+          -960,
+          540
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "let nextUrl\n\nif ($json && $json[\"serpapi_pagination\"] && $json[\"serpapi_pagination\"][\"next\"]) {\n    nextUrl = $json[\"serpapi_pagination\"][\"next\"];\n\n$input.item.json.start = nextUrl.split('&').find(param => param.startsWith('start=')).split('=')[1];\n}\n\n\nreturn $input.item;"
+        },
+        "id": "aef796ac-0d5c-4719-878d-f0f60ae32599",
+        "name": "Extract next start value",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          220,
+          240
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "jsCode": "const allData = []\n\nlet counter = 0;\ndo {\n  try {\n    const items = $items(\"SERPAPI - Scrape Google Maps URL\", 0, counter).map(item => item.json.local_results);\n    allData.push.apply(allData, items);\n  } catch (error) {\n    return [{json: {allData}}];  \n  }\n\n  counter++;\n} while(true);\nreturn $input.all();"
+        },
+        "id": "22ade3c1-104c-4729-91e3-ef38acf0f132",
+        "name": "Merge all values from SERPAPI",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          720,
+          440
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "jsCode": "console.log($input.all())\n\n\nconst data = $input.all()\n\nconsole.log(\"error\",data)\n\nfunction mergeData(data) {\n    let merged = [];\n    data.forEach(entry => {\n        for (const key in entry.json) {\n            merged.push(entry.json[key]);\n        }\n    });\n    return merged;\n}\n\nconst mergedData = mergeData(data);\nconsole.log(mergedData);\n\n\nreturn mergedData.filter(item => item !== null);"
+        },
+        "id": "f2ccdbb0-2773-4b50-b75e-29851d20c2f1",
+        "name": "Transform data in the right format",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          1240,
+          440
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "operation": "appendOrUpdate",
+          "documentId": {
+            "__rl": true,
+            "value": "https://docs.google.com/spreadsheets/d/1aM9X15ZnOGShu6aSRHaUXlgh86ZvILmrnT451_1cUz8/edit?gid=2023033319#gid=2023033319",
+            "mode": "url"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": 2023033319,
+            "mode": "list",
+            "cachedResultName": "Results",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1aM9X15ZnOGShu6aSRHaUXlgh86ZvILmrnT451_1cUz8/edit#gid=2023033319"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {},
+            "matchingColumns": [
+              "place_id"
+            ],
+            "schema": [
+              {
+                "id": "title",
+                "displayName": "title",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "phone",
+                "displayName": "phone",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "website",
+                "displayName": "website",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "rating",
+                "displayName": "rating",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "reviews",
+                "displayName": "reviews",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "type",
+                "displayName": "type",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "address",
+                "displayName": "address",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "price",
+                "displayName": "price",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "place_id",
+                "displayName": "place_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "position",
+                "displayName": "position",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "data_id",
+                "displayName": "data_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "data_cid",
+                "displayName": "data_cid",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "reviews_link",
+                "displayName": "reviews_link",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "photos_link",
+                "displayName": "photos_link",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "gps_coordinates",
+                "displayName": "gps_coordinates",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "place_id_search",
+                "displayName": "place_id_search",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "provider_id",
+                "displayName": "provider_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "types",
+                "displayName": "types",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "open_state",
+                "displayName": "open_state",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "hours",
+                "displayName": "hours",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "operating_hours",
+                "displayName": "operating_hours",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "description",
+                "displayName": "description",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "service_options",
+                "displayName": "service_options",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "order_online",
+                "displayName": "order_online",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "thumbnail",
+                "displayName": "thumbnail",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "editorial_reviews",
+                "displayName": "editorial_reviews",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "unclaimed_listing",
+                "displayName": "unclaimed_listing",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "reserve_a_table",
+                "displayName": "reserve_a_table",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "user_review",
+                "displayName": "user_review",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "amenities",
+                "displayName": "amenities",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "book_online",
+                "displayName": "book_online",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "type_id",
+                "displayName": "type_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "type_ids",
+                "displayName": "type_ids",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "extensions",
+                "displayName": "extensions",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "serpapi_thumbnail",
+                "displayName": "serpapi_thumbnail",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "unsupported_extensions",
+                "displayName": "unsupported_extensions",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "id": "3590692e-0d67-4db4-aed6-49bc99b7c086",
+        "name": "Add rows in Google Sheets",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          1620,
+          440
+        ],
+        "typeVersion": 4.2,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "drp9T10ln5XMeXW9",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "https://serpapi.com/search.json",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "serpApi",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "engine",
+                "value": "google_maps"
+              },
+              {
+                "name": "q",
+                "value": "={{$json?.search_parameters?.q || $json.keyword }} "
+              },
+              {
+                "name": "ll",
+                "value": "={{ $json?.search_parameters?.ll|| $json.geo }}"
+              },
+              {
+                "name": "type",
+                "value": "search"
+              },
+              {
+                "name": "start",
+                "value": "={{ $json.start|| 0 }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "53629622-99da-41d2-a14f-8ead869a5c83",
+        "name": "SERPAPI - Scrape Google Maps URL",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          -60,
+          260
+        ],
+        "typeVersion": 4.1,
+        "credentials": {
+          "serpApi": {
+            "id": "lqCtuHa06B6qGoG4",
+            "name": "SerpAPI account"
+          }
+        },
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "operation": "removeDuplicates",
+          "compare": "selectedFields",
+          "fieldsToCompare": "place_id",
+          "options": {}
+        },
+        "id": "a9628b3e-e959-440f-9396-ad654f543d86",
+        "name": "Remove duplicate items",
+        "type": "n8n-nodes-base.itemLists",
+        "position": [
+          1440,
+          440
+        ],
+        "typeVersion": 3.1
+      },
+      {
+        "parameters": {
+          "fieldToSplitOut": "allData",
+          "options": {}
+        },
+        "id": "1ac0b7aa-1b09-451b-b582-541ab245f5d7",
+        "name": "Split out items",
+        "type": "n8n-nodes-base.itemLists",
+        "position": [
+          900,
+          440
+        ],
+        "typeVersion": 3.1
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "string": [
+              {
+                "value1": "={{ $json[0] }}",
+                "operation": "isNotEmpty"
+              }
+            ]
+          }
+        },
+        "id": "889296c1-019a-4f62-8aa1-dd23119027f4",
+        "name": "Remove empty values",
+        "type": "n8n-nodes-base.filter",
+        "position": [
+          1060,
+          440
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "value": "https://docs.google.com/spreadsheets/d/1aM9X15ZnOGShu6aSRHaUXlgh86ZvILmrnT451_1cUz8/edit?gid=0#gid=0",
+            "mode": "url"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "Add your search url here",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1aM9X15ZnOGShu6aSRHaUXlgh86ZvILmrnT451_1cUz8/edit#gid=0"
+          },
+          "filtersUI": {
+            "values": [
+              {
+                "lookupColumn": "Status",
+                "lookupValue": "="
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "10d0963d-4ae6-4720-b110-ede732508297",
+        "name": "Google Sheets - Get searches  to scrap",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          -520,
+          260
+        ],
+        "typeVersion": 4.2,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "drp9T10ln5XMeXW9",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "fields": {
+            "values": [
+              {
+                "name": "keyword",
+                "stringValue": "={{ $json.URL.match(/\\/search\\/(.*?)\\//)[1] }}"
+              },
+              {
+                "name": "geo",
+                "stringValue": "={{ $json.URL.match(/(@[^\\/?]+)/)[1]}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "c5abe770-ae32-4af6-b22b-29ac4e2e3bba",
+        "name": "Extract keyword and location from URL",
+        "type": "n8n-nodes-base.set",
+        "position": [
+          -300,
+          260
+        ],
+        "typeVersion": 3.2
+      },
+      {
+        "parameters": {
+          "content": "## Adjust frequency to your own needs",
+          "height": 266.8807730722022,
+          "width": 312.2965981499806
+        },
+        "id": "708089cf-ce12-400e-a1ef-b449216aa6af",
+        "name": "Sticky Note1",
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          -1060,
+          -40
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "hours"
+              }
+            ]
+          }
+        },
+        "id": "63bc2a1b-2ba2-43f6-99b6-2222b2a22397",
+        "name": "Run workflow every hours",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "position": [
+          -940,
+          60
+        ],
+        "typeVersion": 1.1
+      },
+      {
+        "parameters": {
+          "content": "## Copy my template and connect it to n8n\n\nTemplate link: \n https://docs.google.com/spreadsheets/d/170osqaLBql9M-4RAH3_lBKR7ZMaQqyLUkAD-88xGuEQ/edit?usp=sharing",
+          "height": 511.2196121145973
+        },
+        "id": "19631ea4-6321-47f7-9532-d7eeb54ba5bb",
+        "name": "Sticky Note2",
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          -600,
+          -40
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "content": "## Add your SERPAPI API Key\n\nStart a free trial at serpapi.com and get your API key in \"Your account\" section",
+          "height": 535.9388810024284
+        },
+        "id": "332f76ab-1ceb-4d85-9dfe-a22176f1c899",
+        "name": "Sticky Note3",
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          -120,
+          -80
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "value": "https://docs.google.com/spreadsheets/d/1aM9X15ZnOGShu6aSRHaUXlgh86ZvILmrnT451_1cUz8/edit?gid=0#gid=0",
+            "mode": "url"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/170osqaLBql9M-4RAH3_lBKR7ZMaQqyLUkAD-88xGuEQ/edit#gid=0",
+            "cachedResultName": "Add your search url here"
+          },
+          "columns": {
+            "value": {
+              "URL": "={{ $('Google Sheets - Get searches  to scrap').first().json.URL }}",
+              "Status": "✅"
+            },
+            "schema": [
+              {
+                "id": "URL",
+                "type": "string",
+                "display": true,
+                "removed": false,
+                "required": false,
+                "displayName": "URL",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "Status",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "displayName": "Status",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "row_number",
+                "type": "string",
+                "display": true,
+                "removed": true,
+                "readOnly": true,
+                "required": false,
+                "displayName": "row_number",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              }
+            ],
+            "mappingMode": "defineBelow",
+            "matchingColumns": [
+              "URL"
+            ]
+          },
+          "options": {}
+        },
+        "id": "ca10c88b-b7be-4db9-8ed4-c53a6c5cee3a",
+        "name": "Update Status to Success",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          1800,
+          440
+        ],
+        "executeOnce": true,
+        "typeVersion": 4.2,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "drp9T10ln5XMeXW9",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "value": "https://docs.google.com/spreadsheets/d/1aM9X15ZnOGShu6aSRHaUXlgh86ZvILmrnT451_1cUz8/edit?gid=0#gid=0",
+            "mode": "url"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "gid=0",
+            "mode": "list",
+            "cachedResultName": "Add your search url here",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1aM9X15ZnOGShu6aSRHaUXlgh86ZvILmrnT451_1cUz8/edit#gid=0"
+          },
+          "columns": {
+            "value": {
+              "URL": "={{ $('Google Sheets - Get searches  to scrap').first().json.URL }}",
+              "Status": "❌"
+            },
+            "schema": [
+              {
+                "id": "URL",
+                "type": "string",
+                "display": true,
+                "removed": false,
+                "required": false,
+                "displayName": "URL",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "Status",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "displayName": "Status",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "row_number",
+                "type": "string",
+                "display": true,
+                "removed": true,
+                "readOnly": true,
+                "required": false,
+                "displayName": "row_number",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              }
+            ],
+            "mappingMode": "defineBelow",
+            "matchingColumns": [
+              "URL"
+            ]
+          },
+          "options": {}
+        },
+        "id": "0147552c-14a3-42a4-913f-073c42578c0e",
+        "name": "Update Status to Error",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          220,
+          380
+        ],
+        "executeOnce": true,
+        "typeVersion": 4.2,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "drp9T10ln5XMeXW9",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "## Click on Execute Workflow to run the workflow manually",
+          "height": 310.4703136043695,
+          "width": 312.2965981499806
+        },
+        "id": "d8c23b07-9840-4736-88f5-d910734b1550",
+        "name": "Sticky Note",
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          -1060,
+          400
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "number": [
+              {
+                "value1": "={{ $json.search_parameters.start }}",
+                "operation": "isNotEmpty"
+              }
+            ],
+            "string": [
+              {
+                "value1": "={{ $json.serpapi_pagination.next }}",
+                "operation": "isNotEmpty"
+              }
+            ]
+          }
+        },
+        "id": "ef7143f8-a56d-4a2b-b0ec-c253e97d8391",
+        "name": "Continue IF Loop is complete",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          480,
+          380
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "content": "## Read Me\n\nThis workflow allows to scrape Google Maps data in an efficient way using SerpAPI. \n\nYou'll get all data from Gmaps at a cheaper cost than Google Maps API.\n\nAdd as input, your Google Maps search URL and you'll get a list of places with many data points such as:\n- phone number\n- website\n- rating\n- reviews\n- address\n\nAnd much more.\n\n\n**Full guide to implement the workflow is here**: \n\nhttps://lempire.notion.site/Scrape-Google-Maps-places-with-n8n-b7f1785c3d474e858b7ee61ad4c21136?pvs=4",
+          "height": 532.3420004517685,
+          "width": 357.33341618921213
+        },
+        "id": "0ad3bb57-e396-490d-bd8d-c8e198027c36",
+        "name": "Sticky Note4",
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          -1480,
+          -40
+        ],
+        "typeVersion": 1
+      }
+    ],
+    "connections": {
+      "When clicking \"Execute Workflow\"": {
+        "main": [
+          [
+            {
+              "node": "Google Sheets - Get searches  to scrap",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract next start value": {
+        "main": [
+          [
+            {
+              "node": "Continue IF Loop is complete",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge all values from SERPAPI": {
+        "main": [
+          [
+            {
+              "node": "Split out items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transform data in the right format": {
+        "main": [
+          [
+            {
+              "node": "Remove duplicate items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add rows in Google Sheets": {
+        "main": [
+          [
+            {
+              "node": "Update Status to Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SERPAPI - Scrape Google Maps URL": {
+        "main": [
+          [
+            {
+              "node": "Extract next start value",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Update Status to Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remove duplicate items": {
+        "main": [
+          [
+            {
+              "node": "Add rows in Google Sheets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Split out items": {
+        "main": [
+          [
+            {
+              "node": "Remove empty values",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remove empty values": {
+        "main": [
+          [
+            {
+              "node": "Transform data in the right format",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Google Sheets - Get searches  to scrap": {
+        "main": [
+          [
+            {
+              "node": "Extract keyword and location from URL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract keyword and location from URL": {
+        "main": [
+          [
+            {
+              "node": "SERPAPI - Scrape Google Maps URL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run workflow every hours": {
+        "main": [
+          [
+            {
+              "node": "Google Sheets - Get searches  to scrap",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Continue IF Loop is complete": {
+        "main": [
+          [
+            {
+              "node": "SERPAPI - Scrape Google Maps URL",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Merge all values from SERPAPI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "templateCredsSetupCompleted": true,
+      "instanceId": "4c4289369310311012d5df6e15b6bf08082af2e97abc5166b8a0cc54040a25a7"
+    }
+  }
