@@ -18,15 +18,13 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Configuration
-INPUT_CSV_PATH = "Google Map Scraper - Results.csv"
-OUTPUT_CSV_PATH = "Google_Map_Scraper_Results_Categorized_Analyzed.csv" # New output file name
+INPUT_CSV_PATH = "Google Map Scraper - Results.csv" # As per your provided file
+OUTPUT_CSV_PATH = "Google_Map_Scraper_Results_Categorized_Explained_Analyzed.csv" # New output name
 SCREENSHOTS_DIR = Path("screenshots")
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Initialize Gemini model
 try:
-    # Using a model that supports vision and good instruction following.
-    # gemini-1.5-flash is generally good.
     model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
     print(f"Error initializing Gemini model: {e}")
@@ -80,70 +78,69 @@ def analyze_website_aesthetic_categorized(image_path: Path) -> tuple[str, str]:
 
     try:
         print(f"Analyzing {image_path.name} with Gemini for categorization...")
-        image_part = {
-            "mime_type": "image/png",
-            "data": image_path.read_bytes()
-        }
-        
-        # New prompt for categorized output
+        image_file = genai.upload_file(path=image_path) # Use upload_file for gemini-1.5-flash
+
+        # Updated prompt with detailed definitions for each category
         prompt = f"""
-        Your task is to classify the website's aesthetic based on the attached screenshot.
-        Choose exclusively from one of the following three categories:
+        Your task is to analyze the aesthetic of the website in the attached screenshot.
+        First, classify the website's design into one of the following three categories only:
         1. Ugly
         2. Passable
         3. Modern
 
-        After assigning a category, provide a brief one or two-sentence explanation for your choice,
-        focusing on visual design elements like layout, color scheme, typography, and overall presentation.
+        Then, provide a brief one or two-sentence explanation for your classification.
 
-        Please format your response EXACTLY as follows:
-        Category: [Chosen Category]
-        Explanation: [Your brief explanation]
+        Definitions for Categorization:
+        - Ugly: The website appears visually unappealing. This could be due to elements reminiscent of 1990s web design, use of outdated or clashing color schemes, poor typography choices, a cluttered or confusing layout, low-quality images, or other factors that make it aesthetically displeasing.
+        - Passable: The website is functional but lacks a distinctive or impressive design. It might look like a standard boilerplate template (e.g., a basic, unmodified WordPress theme), have a very generic appearance, or use common stock elements without much customization. It's not offensive but not particularly engaging, innovative, or modern.
+        - Modern: The website features a sleek, contemporary, and professional design. This often includes characteristics such as clean layouts, effective use of white space, high-quality and relevant imagery, current typography trends, a cohesive and pleasing color palette, intuitive navigation, and an overall polished and visually engaging presentation that feels up-to-date.
 
-        Example:
+        Please format your response EXACTLY as follows, choosing only one category from the list above:
+        Category: [Chosen Category: Ugly, Passable, or Modern]
+        Explanation: [Your brief explanation based on the definitions and visual elements observed in the screenshot]
+
+        Example if the website looked sleek and well-designed:
         Category: Modern
-        Explanation: The website uses a clean layout, contemporary typography, and a pleasing color scheme.
+        Explanation: The website utilizes a minimalist design with ample white space, a contemporary font, and high-quality, relevant imagery, giving it a professional and up-to-date feel.
+
+        Example if the website looked like a basic template:
+        Category: Passable
+        Explanation: The site appears to use a standard template structure with generic imagery and a simple color scheme. It's functional but not visually striking.
+
+        Example if the website looked very outdated:
+        Category: Ugly
+        Explanation: The website uses a cluttered layout with clashing, bright colors and pixelated images, reminiscent of early web design or just not any decent looking website at all.
         """
-        
-        # Generation Configuration to encourage more deterministic output (optional, but can help)
-        # generation_config = genai.types.GenerationConfig(
-        #    temperature=0.2, # Lower temperature for more deterministic output
-        #    # max_output_tokens=100 # If you want to limit response length
-        # )
-        # response = model.generate_content([prompt, image_part], generation_config=generation_config)
-        
-        response = model.generate_content([prompt, image_part])
-        
+
+        response = model.generate_content([prompt, image_file])
+        genai.delete_file(image_file.name) # Clean up the uploaded file
+
         response_text = response.text.strip()
-        
+
         # Parse the response
         category_match = re.search(r"Category:\s*(Ugly|Passable|Modern)", response_text, re.IGNORECASE)
         explanation_match = re.search(r"Explanation:\s*(.*)", response_text, re.DOTALL | re.IGNORECASE)
 
         if category_match:
-            extracted_cat = category_match.group(1).capitalize() # Capitalize to match our list
+            extracted_cat = category_match.group(1).capitalize()
             if extracted_cat in valid_categories:
                 category = extracted_cat
             else:
-                # This case should be rare if the model follows instructions
-                category = "Invalid Category from LLM" 
+                category = "Invalid Category from LLM"
                 print(f"Warning: LLM provided an invalid category: {extracted_cat}")
         else:
-            # Fallback: if "Category:" line is missing, try to find keywords directly
-            # This is a weaker fallback
             if "ugly" in response_text.lower(): category = "Ugly"
             elif "passable" in response_text.lower(): category = "Passable"
             elif "modern" in response_text.lower(): category = "Modern"
             else: category = "Uncategorized - Format Error"
             print(f"Warning: 'Category:' line not found in LLM response. Fallback attempt: {category}")
 
-
         if explanation_match:
             explanation = explanation_match.group(1).strip()
-        elif category != "Uncategorized - Format Error": # If category was found but explanation wasn't formatted
+        elif category not in ["Uncategorized - Format Error", "Invalid Category from LLM", "Error"]:
              explanation = "Explanation not found in expected format, but category assigned."
-        else: # Neither category nor explanation found in expected format
-            explanation = f"Raw LLM Response (format error): {response_text[:200]}..." # Store part of raw response
+        else:
+            explanation = f"Raw LLM Response (format error or during fallback): {response_text[:250]}..."
 
         return category, explanation
 
@@ -151,6 +148,12 @@ def analyze_website_aesthetic_categorized(image_path: Path) -> tuple[str, str]:
         print(f"Error analyzing image {image_path.name} with Gemini: {e}")
         if 'response' in locals() and hasattr(response, 'prompt_feedback') and response.prompt_feedback:
             print(f"Gemini Prompt Feedback: {response.prompt_feedback}")
+        # Clean up file if an error occurs after upload
+        if 'image_file' in locals() and image_file:
+            try:
+                genai.delete_file(image_file.name)
+            except Exception as fe:
+                print(f"Error cleaning up uploaded file {image_file.name}: {fe}")
         return "Error", f"Gemini analysis exception: {str(e)}"
 
 
@@ -168,12 +171,10 @@ def main():
     if 'website' not in df.columns:
         print(f"Error: CSV must contain a 'website' column. Found columns: {df.columns.tolist()}")
         return
-    
-    # Initialize new columns
+
     df['aesthetic_category'] = "Not Processed"
     df['aesthetic_explanation'] = "Not Processed"
     df['screenshot_path'] = ""
-
 
     for index, row in df.iterrows():
         website_url = row.get('website')
@@ -191,7 +192,7 @@ def main():
         safe_name_for_file = sanitize_filename(business_title if pd.notna(business_title) else website_url)
         screenshot_filename = f"{index}_{safe_name_for_file}.png"
         screenshot_path_obj = SCREENSHOTS_DIR / screenshot_filename
-        
+
         category = "Error"
         explanation = "Screenshot failed or analysis error."
         screenshot_path_str = ""
@@ -203,12 +204,12 @@ def main():
             category = "Error"
             explanation = "Screenshot failed."
             screenshot_path_str = ""
-        
+
         df.loc[index, 'screenshot_path'] = screenshot_path_str
         df.loc[index, 'aesthetic_category'] = category
         df.loc[index, 'aesthetic_explanation'] = explanation
         
-        # time.sleep(1) # Optional delay
+        # time.sleep(1) # Optional delay between API calls
 
     try:
         df.to_csv(OUTPUT_CSV_PATH, index=False, encoding='utf-8')
