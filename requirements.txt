@@ -1,0 +1,5 @@
+pandas
+playwright
+google-generativeai
+python-dotenv
+serpapi
