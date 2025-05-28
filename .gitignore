@@ -188,4 +188,6 @@ cython_debug/
 .cursorindexingignore
 
 screenshots/*
+screenshots_openrouter/*
 *.csv
+*.DS_Store
